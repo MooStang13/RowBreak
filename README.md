@@ -40,21 +40,7 @@ The rules:
 
 How the connection works: the two browsers talk directly to each other (WebRTC, using [PeerJS](https://peerjs.com), which is bundled inside `index.html`). A free public PeerJS relay is used only for the first handshake, to turn the code into a connection. It is not part of this repository and nothing about the match goes through it. If that relay is down, online play shows an error and the rest of the game still works. A few strict networks (some mobile carriers and company Wi-Fi) can block direct connections.
 
-## Put it on GitHub Pages
-
-1. Create a new public repository on GitHub, for example `rowbreak`.
-2. Add the files in this folder (`index.html`, `README.md` and a `LICENSE`) with **Add file → Upload files**, then commit.
-3. Open the repository's **Settings**, then **Pages** in the left sidebar.
-4. Under **Build and deployment**, set **Source** to **Deploy from a branch**, pick the `main` branch and the `/ (root)` folder, then save.
-5. After a minute or two the page address shows at the top of the Pages settings:
-
-```
-https://<your-github-username>.github.io/<repository-name>/
-```
-
-Share that link and anyone can play. To update the game later, upload a new `index.html` to the same repository and Pages redeploys on its own.
-
-## Notes
+Enjoy
 
 - The fonts (Silkscreen and IBM Plex Mono) load from Google Fonts. Offline, the game falls back to system monospace fonts and still works.
 - Saves live in the browser, so clearing site data or switching browsers starts from scratch.
