@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="Rowbreak is a brick breaker for the browser: a ten-level unlock tree, bonus levels, hardcore mode, power-ups, a coin shop and online 1v1.">
+<meta name="description" content="Rowbreak is a brick breaker for the browser: a branching 21-level unlock tree, bonus levels, hardcore mode, power-ups, a coin shop and online 1v1.">
 <meta name="theme-color" content="#0c1018">
 <meta property="og:title" content="Rowbreak">
-<meta property="og:description" content="Rowbreak is a brick breaker for the browser: a ten-level unlock tree, bonus levels, hardcore mode, power-ups, a coin shop and online 1v1.">
+<meta property="og:description" content="Rowbreak is a brick breaker for the browser: a branching 21-level unlock tree, bonus levels, hardcore mode, power-ups, a coin shop and online 1v1.">
 <meta property="og:type" content="website">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230c1018'/%3E%3Crect x='4' y='6' width='11' height='6' rx='1.5' fill='%23ffb3ba'/%3E%3Crect x='17' y='6' width='11' height='6' rx='1.5' fill='%23baffc9'/%3E%3Crect x='4' y='14' width='11' height='6' rx='1.5' fill='%23bae1ff'/%3E%3Crect x='17' y='14' width='11' height='6' rx='1.5' fill='%23d9c2ff'/%3E%3Crect x='10' y='25' width='12' height='3' rx='1.5' fill='%23e6ebf5'/%3E%3C/svg%3E">
 <style>
@@ -1586,6 +1586,24 @@ canvas:focus-visible { border-color: var(--accent); }
     if (!keepJoin) setCodeBox(false);
   }
 
+  var VS_ICE = { config: { iceTransportPolicy: 'all', iceCandidatePoolSize: 4, iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun.cloudflare.com:3478' }, { urls: 'stun:global.stun.twilio.com:3478' },
+    { urls: 'turn:eu-0.turn.peerjs.com:3478', username: 'peerjs', credential: 'peerjsp' },
+    { urls: 'turn:us-0.turn.peerjs.com:3478', username: 'peerjs', credential: 'peerjsp' }
+  ] } };
+  function vsWatchIce(conn, sess) {
+    var tries = 0, iv = setInterval(function () {
+      if (vs !== sess || sess.started) { clearInterval(iv); return; }
+      var pc = conn.peerConnection;
+      if (pc) {
+        sess.stage = 'LINKING (' + String(pc.iceConnectionState || '').toUpperCase() + ')';
+        sess.ice = pc.iceConnectionState;
+        if (pc.iceConnectionState === 'failed') { clearInterval(iv); if (sess.role === 'host') { try { conn.close(); } catch (e) {} sess.conn = null; sess.stage = ''; vsMsg = 'A PLAYER TRIED BUT THE LINK FAILED'; return; } vsFail('NETWORKS BLOCK A DIRECT LINK. TRY BOTH ON THE SAME WI-FI'); }
+      }
+      if (++tries > 200) clearInterval(iv);
+    }, 400);
+  }
   function vsHostStart() {
     if (typeof Peer === 'undefined') { vsMsg = NO_PEER; return; }
     vsCleanup(); vsMsg = ''; state = 'vshost'; hoverId = null;
@@ -1596,9 +1614,9 @@ canvas:focus-visible { border-color: var(--accent); }
       var sess = vsNewSession('host', code);
       vs = sess;
       var peer;
-      try { peer = new Peer('rowbreak-' + code); } catch (e) { vsFail('COULD NOT START ONLINE PLAY'); return; }
+      try { peer = new Peer('rowbreak-' + code, VS_ICE); } catch (e) { vsFail('COULD NOT START ONLINE PLAY'); return; }
       sess.peer = peer;
-      sess.timer = setTimeout(function () { if (vs === sess && !sess.ready) vsFail('COULD NOT REACH THE RELAY. TRY AGAIN'); }, 12000);
+      sess.timer = setTimeout(function () { if (vs === sess && !sess.ready) vsFail('COULD NOT REACH THE RELAY. TRY AGAIN'); }, 15000);
       peer.on('open', function () { if (vs === sess) sess.ready = true; });
       peer.on('error', function (err) {
         if (vs !== sess) return;
@@ -1614,8 +1632,8 @@ canvas:focus-visible { border-color: var(--accent); }
           if (conn.open) turnAway(); else conn.on('open', turnAway);
           return;
         }
-        sess.conn = conn;
-        vsHook(conn, sess);
+        sess.conn = conn; sess.stage = 'FRIEND FOUND, LINKING';
+        vsHook(conn, sess); vsWatchIce(conn, sess);
       });
       peer.on('disconnected', function () { try { if (vs === sess && !peer.destroyed) peer.reconnect(); } catch (e) {} });
     })();
@@ -1635,14 +1653,15 @@ canvas:focus-visible { border-color: var(--accent); }
     var sess = vsNewSession('guest', code);
     vs = sess; sess.phase = 'connecting'; vsMsg = ''; state = 'vsjoin';
     var peer;
-    try { peer = new Peer(); } catch (e) { vsFail('COULD NOT START ONLINE PLAY'); return; }
+    try { peer = new Peer(undefined, VS_ICE); } catch (e) { vsFail('COULD NOT START ONLINE PLAY'); return; }
     sess.peer = peer;
-    sess.timer = setTimeout(function () { if (vs === sess && !sess.started) vsFail('NO ANSWER. CHECK THE CODE AND YOUR CONNECTION'); }, 15000);
+    sess.timer = setTimeout(function () { if (vs === sess && !sess.started) vsFail(sess.stage ? 'NO LINK AFTER 30 S (' + sess.stage + ')' : 'COULD NOT REACH THE RELAY. TRY AGAIN'); }, 30000);
     peer.on('open', function () {
       if (vs !== sess) return;
+      sess.stage = 'RELAY OK, CALLING HOST';
       var conn = peer.connect('rowbreak-' + code, { reliable: true, serialization: 'json' });
       sess.conn = conn;
-      vsHook(conn, sess);
+      vsHook(conn, sess); vsWatchIce(conn, sess);
     });
     peer.on('error', function (err) {
       if (vs !== sess) return;
@@ -1729,7 +1748,7 @@ canvas:focus-visible { border-color: var(--accent); }
     if (host) {
       if (vs) {
         text(vs.code, W / 2, 170, 64, C.accent, 'center');
-        text(vs.ready ? 'WAITING FOR A PLAYER' + dots : 'OPENING' + dots, W / 2, 240, 12, C.fg, 'center');
+        text(vs.stage ? vs.stage + dots : vs.ready ? 'WAITING FOR A PLAYER' + dots : 'OPENING' + dots, W / 2, 240, 12, C.fg, 'center');
         btn('copy', tAnim < vs.copied ? 'LINK COPIED' : 'COPY INVITE LINK', W / 2, 350, 280, 42, true, vsCopy, C.blue);
       }
       text('SEND THE CODE OR THE LINK TO A FRIEND', W / 2, 282, 10, C.dim, 'center', 'body');
@@ -1738,6 +1757,7 @@ canvas:focus-visible { border-color: var(--accent); }
     } else {
       var busy = vs && vs.phase === 'connecting';
       text(busy ? 'CONNECTING' + dots : 'TYPE THE 4 CHARACTER CODE', W / 2, 112, 11, C.fg, 'center');
+      if (busy && vs.stage) text(vs.stage, W / 2, 140, 10, C.dim, 'center', 'body');
       btn('join', 'JOIN', W / 2, 262, 280, 42, true, function () { vsJoin(codeEl.value); }, C.blue);
       btn('back', 'BACK', W / 2, 316, 280, 42, false, vsOpenMenu);
     }
