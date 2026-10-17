@@ -987,7 +987,7 @@ canvas:focus-visible { border-color: var(--accent); }
     btn('m0', playLabel, W / 2, ys[0], 240, 38, true, function () { wake(); playNext(); });
     btn('m1', 'LEVEL TREE', W / 2, ys[1], 240, 38, false, function () { wake(); toTree(false); });
     btn('m2', 'HARDCORE', W / 2, ys[2], 240, 38, false, function () { wake(); startHardcore(); }, undefined, C.bad);
-    btn('m3', 'ONLINE 1V1', W / 2, ys[3], 240, 38, false, function () { wake(); vsOpenMenu(); }, undefined, C.blue);
+    btn('m3', '1V1 MODE', W / 2, ys[3], 240, 38, false, function () { wake(); vsOpenMenu(); }, undefined, C.blue);
     btn('m4', 'SHOP', W / 2, ys[4], 240, 38, false, function () { wake(); toShop(); });
 
     text(clearedCount() + ' OF ' + NODES.length + ' LEVELS CLEARED', W / 2, 520, 11, C.dim, 'center', 'body');
@@ -1572,9 +1572,47 @@ canvas:focus-visible { border-color: var(--accent); }
     } catch (e) {}
   }
   var NO_PEER = 'ONLINE PLAY NEEDS THE GITHUB PAGE VERSION';
+  // ---- play against the computer (no network) ----
+  function vsStartAI() {
+    vsCleanup(); vsMsg = '';
+    var sess = vsNewSession('host', 'CPU');
+    sess.ai = true; sess.started = true; sess.ready = true;
+    sess.aiOff = 0; sess.aiErr = 0; sess.aiGoal = W / 2;
+    vs = sess; setCodeBox(false); hoverId = null;
+    vsReset(); state = 'vsgame';
+  }
+  function vsAI(dt) {
+    var best = 1e9, goal = null, i, b, dy, x, m;
+    for (i = 0; i < 2; i++) {
+      b = vs.ball[i];
+      if (b.stuck || b.vy >= 0) continue;
+      dy = b.y - VS_PY;
+      if (dy < 0 || dy >= best) continue;
+      best = dy;
+      x = b.x + b.vx * (dy / -b.vy);
+      m = ((x % (2 * W)) + 2 * W) % (2 * W);
+      goal = m > W ? 2 * W - m : m;
+    }
+    if (goal === null) {
+      b = vs.ball[1];
+      goal = b.stuck ? W / 2 + vs.aiOff * 3 : b.x;
+      if (Math.random() < dt * 0.8) vs.aiOff = (Math.random() * 2 - 1) * VS_PW * 0.25;
+    } else {
+      if (best > 260) vs.aiErr = vs.aiErr || (Math.random() * 2 - 1) * 26;
+      else if (best < 40) vs.aiErr = 0;
+      goal += vs.aiOff + vs.aiErr;
+      if (best < 60) vs.aiOff = (Math.random() * 2 - 1) * VS_PW * 0.3;
+    }
+    var d = goal - vs.inX, lim = 340 * dt;
+    vs.inX += Math.max(-lim, Math.min(lim, d));
+    vs.inX = Math.max(VS_PW / 2, Math.min(W - VS_PW / 2, vs.inX));
+    if (vs.ball[1].stuck && vs.ball[1].stuckT > 0.9 && vs.phase === 'play') vs.launchReq[1] = true;
+    if (vs.phase === 'over') vs.rematch[1] = true;
+  }
+
   function vsOpenMenu() {
     setCodeBox(false); vsCleanup();
-    vsMsg = typeof Peer === 'undefined' ? NO_PEER : '';
+    vsMsg = '';
     vsSel = 0; hoverId = null; state = 'vsmenu';
   }
   function vsLeave() { setCodeBox(false); vsCleanup(); toMenu(); }
@@ -1700,6 +1738,7 @@ canvas:focus-visible { border-color: var(--accent); }
     vsMovePad(dt);
     vs.sendTimer += dt;
     if (vs.role === 'host') {
+      if (vs.ai) vsAI(dt);
       if (vs.phase !== 'over') vsSim(dt);
       else if (vs.events.length) { vs.netEvents = vs.netEvents.concat(vs.events); vsFx(vs.events); vs.events = []; }
       if (vs.phase === 'over' && vs.rematch[0] && vs.rematch[1] && vs.over && vs.over.why !== 'LEFT') vsReset();
@@ -1721,7 +1760,7 @@ canvas:focus-visible { border-color: var(--accent); }
   // ---------- online 1v1 screens ----------
   function drawVsMenu() {
     gridBg(0);
-    text('ONLINE 1V1', W / 2, 40, 22, C.blue, 'center');
+    text('1V1', W / 2, 40, 22, C.blue, 'center');
     var lines = [
       'TWO PLAYERS, ONE ARENA, FIVE ROWS OF BRICKS EACH.',
       'YOUR BRICKS ARE GREEN. THEIRS ARE PINK.',
@@ -1731,14 +1770,15 @@ canvas:focus-visible { border-color: var(--accent); }
       'THEIR BALL GETS PAST YOU AND YOU LOSE STRAIGHT AWAY.'
     ];
     for (var i = 0; i < lines.length; i++) text(lines[i], W / 2, 92 + i * 22, 11, i === 1 ? C.fg : C.dim, 'center', 'body');
-    var ys = [300, 354, 408];
-    btn('v0', 'CREATE GAME', W / 2, ys[0], 260, 44, true, vsHostStart, C.blue);
-    btn('v1', 'JOIN WITH CODE', W / 2, ys[1], 260, 44, false, vsOpenJoin);
-    btn('v2', 'BACK', W / 2, ys[2], 260, 44, false, toMenu);
-    if (vsMsg) text(vsMsg, W / 2, 462, 10, C.bad, 'center', 'body');
-    text('PLAYS DIRECTLY BETWEEN BROWSERS  ·  NEEDS INTERNET', W / 2, 560, 9, C.dim, 'center', 'body');
+    var ys = [290, 340, 390, 440];
+    btn('v0', 'VS COMPUTER', W / 2, ys[0], 260, 42, true, vsStartAI, C.blue);
+    btn('v1', 'CREATE ONLINE GAME', W / 2, ys[1], 260, 42, false, vsHostStart);
+    btn('v2', 'JOIN WITH CODE', W / 2, ys[2], 260, 42, false, vsOpenJoin);
+    btn('v3', 'BACK', W / 2, ys[3], 260, 42, false, toMenu);
+    if (vsMsg) text(vsMsg, W / 2, 492, 10, C.bad, 'center', 'body');
+    text('ONLINE PLAY IS EXPERIMENTAL AND MAY NOT WORK ON EVERY NETWORK', W / 2, 560, 9, C.dim, 'center', 'body');
     ctx.strokeStyle = C.fg; ctx.lineWidth = 2;
-    rr(W / 2 - 136, ys[vsSel] - 26, 272, 52, 8); ctx.stroke();
+    rr(W / 2 - 136, ys[vsSel] - 24, 272, 48, 8); ctx.stroke();
   }
 
   function drawVsLobby() {
@@ -1937,9 +1977,9 @@ canvas:focus-visible { border-color: var(--accent); }
       return;
     }
     if (state === 'vsmenu') {
-      if (up) { vsSel = (vsSel + 2) % 3; hoverId = null; }
-      else if (down) { vsSel = (vsSel + 1) % 3; hoverId = null; }
-      else if (go && !e.repeat) { if (vsSel === 0) vsHostStart(); else if (vsSel === 1) vsOpenJoin(); else toMenu(); }
+      if (up) { vsSel = (vsSel + 3) % 4; hoverId = null; }
+      else if (down) { vsSel = (vsSel + 1) % 4; hoverId = null; }
+      else if (go && !e.repeat) { if (vsSel === 0) vsStartAI(); else if (vsSel === 1) vsHostStart(); else if (vsSel === 2) vsOpenJoin(); else toMenu(); }
       else if (back && !e.repeat) toMenu();
       return;
     }
