@@ -75,6 +75,30 @@ body {
   touch-action: auto;
 }
 #codeIn:focus { border-color: var(--accent); }
+#manual {
+  position: absolute; inset: 0; box-sizing: border-box; padding: 4.5% 5%;
+  background: var(--bg); border: 2px solid var(--line); border-radius: 4px;
+  display: none; flex-direction: column; gap: 1.6%; overflow: auto;
+  font-family: var(--font-body); font-size: clamp(10px, 2.5vw, 13px); line-height: 1.45; color: var(--fg);
+  -webkit-user-select: text; user-select: text; touch-action: auto;
+}
+#manual h2 { margin: 0 0 4px; font: 700 clamp(14px, 3.8vw, 20px) var(--font-display); color: #aed6ff; text-align: center; }
+#manual p { margin: 0; color: var(--dim); }
+#manual b { color: var(--fg); font-weight: 500; }
+#manual textarea {
+  width: 100%; box-sizing: border-box; min-height: 5.2em; resize: none; padding: 8px;
+  background: var(--panel); color: var(--fg); border: 2px solid var(--line); border-radius: 8px;
+  font: 11px/1.3 var(--font-body); word-break: break-all; outline: none;
+}
+#manual textarea:focus { border-color: var(--accent); }
+#manual .row { display: flex; gap: 8px; }
+#manual button {
+  flex: 1; padding: 10px 6px; cursor: pointer; background: var(--panel); color: var(--fg);
+  border: 2px solid var(--line); border-radius: 8px; font: 700 clamp(10px, 2.6vw, 12px) var(--font-display);
+}
+#manual button.pri { background: #aed6ff; color: #0c1018; border-color: #aed6ff; }
+#manual .stat { min-height: 1.4em; color: var(--accent); text-align: center; }
+#manual .bad { color: #ffb3ba; }
 canvas {
   display: block;
   width: 100%;
@@ -108,6 +132,24 @@ canvas:focus-visible { border-color: var(--accent); }
 <body>
 <div id="frame">
   <canvas id="game" width="480" height="600" tabindex="0" aria-label="Rowbreak, a brick breaker game. Move the paddle with A and D or the left and right arrow keys, or drag on a touch screen."></canvas>
+  <div id="manual" role="dialog" aria-label="Direct link">
+    <h2>DIRECT LINK</h2>
+    <div id="mChoose">
+      <p>Plays straight between the two browsers with no relay in the middle. You swap two codes yourself, by text message or chat, once per match.</p>
+      <div class="row" style="margin-top:14px"><button class="pri" id="mHost">I'M HOSTING</button><button id="mJoin">I'M JOINING</button></div>
+    </div>
+    <div id="mFlow" style="display:none">
+      <p id="mHelp"></p>
+      <p id="mLab1" style="margin-top:10px"></p>
+      <textarea id="mOut" readonly></textarea>
+      <div class="row"><button id="mCopy">COPY CODE</button></div>
+      <p id="mLab2" style="margin-top:10px"></p>
+      <textarea id="mIn" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off"></textarea>
+      <div class="row"><button class="pri" id="mGo"></button></div>
+    </div>
+    <div class="stat" id="mStat"></div>
+    <div class="row" style="margin-top:auto"><button id="mCancel">BACK</button></div>
+  </div>
   <input id="codeIn" type="text" maxlength="4" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" aria-label="Game code" style="display:none">
 </div>
 <p class="hints"><kbd>A</kbd> <kbd>D</kbd> or <kbd>←</kbd> <kbd>→</kbd> move &nbsp;·&nbsp; <kbd>Space</kbd> launch &nbsp;·&nbsp; <kbd>P</kbd> pause &nbsp;·&nbsp; <kbd>M</kbd> level tree &nbsp;·&nbsp; drag or tap on touch</p>
@@ -635,7 +677,7 @@ canvas:focus-visible { border-color: var(--accent); }
         else if (p.k === 'F') { fx.fast = 8; fx.slow = 0; }
         else if (p.k === 'G') { if (state === 'play') activateGold(); }
         else { lives = Math.min(5, lives + 1); }
-        beep(p.k === 'N' || p.k === 'F' ? 200 : 780, 0.12, 'triangle', 0.05);
+        beep(p.k === 'N' || p.k === 'F' || p.k === 'S' ? 200 : 780, 0.12, 'triangle', 0.05);
         drops.splice(j, 1);
       } else if (p.y > H + 20) { drops.splice(j, 1); }
     }
@@ -1278,7 +1320,7 @@ canvas:focus-visible { border-color: var(--accent); }
 
     for (var j = 0; j < drops.length; j++) {
       var p = drops[j];
-      var bad = p.k === 'N' || p.k === 'F';
+      var bad = p.k === 'N' || p.k === 'F' || p.k === 'S';
       if (p.k === 'G') {
         var gp = 0.5 + 0.5 * Math.sin(tAnim * 9);
         var gh = ctx.createRadialGradient(p.x, p.y, 4, p.x, p.y, 30);
@@ -1323,7 +1365,7 @@ canvas:focus-visible { border-color: var(--accent); }
     if (fx.gold > 0) drawGoldBall(ball.x, ball.y, ball.r, tAnim);
     else drawBall(save.equipped.ball, ball.x, ball.y, ball.r, tAnim, 'game');
     if (fx.slow > 0 || fx.fast > 0) {
-      ctx.strokeStyle = fx.slow > 0 ? C.good : C.blue; ctx.lineWidth = 2;
+      ctx.strokeStyle = fx.slow > 0 ? C.bad : C.blue; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r + 2, 0, Math.PI * 2); ctx.stroke();
     }
 
@@ -1331,7 +1373,7 @@ canvas:focus-visible { border-color: var(--accent); }
       text('PADDLE ' + (fx.size > 0 ? '+' : '-') + Math.abs(fx.size), 12, H - 12, 10, fx.size > 0 ? C.good : C.bad);
     }
     if (fx.gold > 0 || extras.length) text((fx.gold > 0 ? 'GOLD ' + Math.ceil(fx.gold) + 's  ·  ' : '') + 'BALLS ' + (extras.length + 1), W / 2, H - 12, 10, C.gold, 'center');
-    if (fx.slow > 0) text('SLOW ' + Math.ceil(fx.slow) + 's', W - 12, H - 12, 10, C.good, 'right');
+    if (fx.slow > 0) text('SLOW ' + Math.ceil(fx.slow) + 's', W - 12, H - 12, 10, C.bad, 'right');
     if (fx.fast > 0) text('FAST ' + Math.ceil(fx.fast) + 's', W - 12, H - 12, 10, C.blue, 'right');
 
     if (state === 'ready') {
@@ -1383,6 +1425,7 @@ canvas:focus-visible { border-color: var(--accent); }
   var MINE = '#baffc9', THEIRS = '#ffb3ba';
   var vs = null, vsMsg = '', vsLeaveArm = 0, codeShown = false, vsSel = 0;
   var codeEl = document.getElementById('codeIn');
+  var manEl = document.getElementById('manual');
 
   function r1(v) { return Math.round(v * 10) / 10; }
   function vsPadY(p) { return p === 0 ? VS_H - VS_PY : VS_PY; }
@@ -1658,6 +1701,7 @@ canvas:focus-visible { border-color: var(--accent); }
     codeShown = show;
     try {
       codeEl.style.display = show ? 'block' : 'none';
+      if (!show) manEl.style.display = 'none';
       if (show) { codeEl.focus(); } else { codeEl.blur(); }
     } catch (e) {}
   }
@@ -1699,6 +1743,142 @@ canvas:focus-visible { border-color: var(--accent); }
     if (vs.ball[1].stuck && vs.ball[1].stuckT > 0.9 && vs.phase === 'play') vs.launchReq[1] = true;
     if (vs.phase === 'over') vs.rematch[1] = true;
   }
+
+  // ---- direct link: WebRTC with no relay, the two players swap codes by hand ----
+  var MAN = {};
+  ['mChoose', 'mFlow', 'mHelp', 'mLab1', 'mLab2', 'mOut', 'mIn', 'mGo', 'mCopy', 'mStat', 'mHost', 'mJoin', 'mCancel'].forEach(function (id) { MAN[id] = document.getElementById(id); });
+  function manStat(t, bad) { MAN.mStat.textContent = t || ''; MAN.mStat.className = 'stat' + (bad ? ' bad' : ''); }
+  function b64u(bytes) {
+    var s = ''; for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+    return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+  function unb64u(str) {
+    str = str.replace(/-/g, '+').replace(/_/g, '/'); while (str.length % 4) str += '=';
+    var s = atob(str), out = new Uint8Array(s.length); for (var i = 0; i < s.length; i++) out[i] = s.charCodeAt(i);
+    return out;
+  }
+  function pipeThrough(bytes, stream) {
+    var w = stream.writable.getWriter(); w.write(bytes); w.close();
+    return new Response(stream.readable).arrayBuffer().then(function (b) { return new Uint8Array(b); });
+  }
+  function packSig(obj) {
+    var raw = new TextEncoder().encode(JSON.stringify(obj));
+    if (typeof CompressionStream === 'undefined') return Promise.resolve('RB0' + b64u(raw));
+    return pipeThrough(raw, new CompressionStream('deflate-raw')).then(function (z) { return 'RB1' + b64u(z); });
+  }
+  function unpackSig(str) {
+    str = String(str || '').replace(/\s+/g, '');
+    var tag = str.slice(0, 3), data;
+    try { data = unb64u(str.slice(3)); } catch (e) { return Promise.reject(new Error('bad')); }
+    var p = tag === 'RB1' && typeof DecompressionStream !== 'undefined' ? pipeThrough(data, new DecompressionStream('deflate-raw'))
+          : tag === 'RB0' ? Promise.resolve(data) : Promise.reject(new Error('bad'));
+    return p.then(function (b) { return JSON.parse(new TextDecoder().decode(b)); });
+  }
+  function manPc() {
+    return new RTCPeerConnection({ iceServers: VS_ICE.config.iceServers });
+  }
+  function manGather(pc) {
+    return new Promise(function (res) {
+      if (pc.iceGatheringState === 'complete') { res(); return; }
+      var done = false;
+      function fin() { if (!done) { done = true; res(); } }
+      pc.addEventListener('icegatheringstatechange', function () { if (pc.iceGatheringState === 'complete') fin(); });
+      setTimeout(fin, 6000);
+    });
+  }
+  function manConn(dc, pc) {
+    var c = { open: dc.readyState === 'open', _h: {}, peerConnection: pc };
+    c.on = function (n, f) { (c._h[n] = c._h[n] || []).push(f); };
+    c.emit = function (n, a) { (c._h[n] || []).slice().forEach(function (f) { f(a); }); };
+    c.send = function (o) { try { if (dc.readyState === 'open') dc.send(JSON.stringify(o)); } catch (e) {} };
+    c.close = function () { try { dc.close(); } catch (e) {} try { pc.close(); } catch (e) {} };
+    dc.onopen = function () { c.open = true; c.emit('open'); };
+    dc.onmessage = function (e) { try { c.emit('data', JSON.parse(e.data)); } catch (x) {} };
+    dc.onclose = function () { c.open = false; c.emit('close'); };
+    dc.onerror = function () { c.emit('error'); };
+    return c;
+  }
+  function manWatch(pc, sess) {
+    pc.oniceconnectionstatechange = function () {
+      if (vs !== sess || sess.started) return;
+      var st = pc.iceConnectionState;
+      if (st === 'checking') manStat('LINKING...');
+      else if (st === 'failed') manStat('THE TWO NETWORKS WILL NOT LINK DIRECTLY. TRY THE SAME WI-FI.', true);
+    };
+  }
+  function manShow(mode) {
+    manEl.style.display = 'flex';
+    MAN.mChoose.style.display = mode === 'choose' ? 'block' : 'none';
+    MAN.mFlow.style.display = mode === 'choose' ? 'none' : 'block';
+    manStat('');
+  }
+  function manOpen() {
+    vsCleanup(); vsMsg = ''; state = 'vsmenu';
+    MAN.mOut.value = ''; MAN.mIn.value = '';
+    manShow('choose');
+  }
+  function manCopyOut() {
+    var v = MAN.mOut.value;
+    if (!v) return;
+    try { navigator.clipboard.writeText(v).then(function () { manStat('COPIED'); }, function () { MAN.mOut.select(); manStat('SELECTED. COPY IT MANUALLY.'); }); }
+    catch (e) { MAN.mOut.select(); manStat('SELECTED. COPY IT MANUALLY.'); }
+  }
+  function manHost() {
+    vsCleanup();
+    var sess = vsNewSession('host', 'LINK'); vs = sess;
+    var pc = manPc(), dc = pc.createDataChannel('rb', { ordered: true });
+    var conn = manConn(dc, pc); sess.conn = conn; sess.peer = { destroy: function () { try { pc.close(); } catch (e) {} } };
+    vsHook(conn, sess); manWatch(pc, sess);
+    manShow('flow');
+    MAN.mHelp.textContent = 'You are the host. Send the first code to your friend, then paste the reply they send back.';
+    MAN.mLab1.innerHTML = '<b>1.</b> Send this code to your friend:';
+    MAN.mLab2.innerHTML = '<b>2.</b> Paste their reply here:';
+    MAN.mOut.value = ''; MAN.mIn.value = '';
+    MAN.mGo.textContent = 'CONNECT'; MAN.mCopy.style.display = '';
+    manStat('MAKING YOUR CODE...');
+    pc.createOffer().then(function (o) { return pc.setLocalDescription(o); }).then(function () { return manGather(pc); })
+      .then(function () { return packSig({ t: 'o', s: pc.localDescription.sdp }); })
+      .then(function (code) { if (vs === sess) { MAN.mOut.value = code; manStat('CODE READY. COPY IT AND SEND IT.'); } })
+      .catch(function () { manStat('COULD NOT MAKE A CODE IN THIS BROWSER', true); });
+    MAN.mGo.onclick = function () {
+      manStat('CHECKING...');
+      unpackSig(MAN.mIn.value).then(function (sig) {
+        if (!sig || sig.t !== 'a') throw new Error('bad');
+        return pc.setRemoteDescription({ type: 'answer', sdp: sig.s });
+      }).then(function () { manStat('CONNECTING...'); })
+        .catch(function () { manStat('THAT IS NOT A VALID REPLY CODE', true); });
+    };
+  }
+  function manJoin() {
+    vsCleanup();
+    var sess = vsNewSession('guest', 'LINK'); vs = sess;
+    manShow('flow');
+    MAN.mHelp.textContent = 'You are joining. Paste the code your friend sent, make your reply, and send it back to them.';
+    MAN.mLab1.innerHTML = '<b>2.</b> Your reply code (send this back):';
+    MAN.mLab2.innerHTML = '<b>1.</b> Paste your friend\'s code here:';
+    MAN.mOut.value = ''; MAN.mIn.value = '';
+    MAN.mGo.textContent = 'MAKE REPLY'; MAN.mCopy.style.display = '';
+    MAN.mGo.onclick = function () {
+      manStat('MAKING YOUR REPLY...');
+      unpackSig(MAN.mIn.value).then(function (sig) {
+        if (!sig || sig.t !== 'o') throw new Error('bad');
+        if (vs !== sess) throw new Error('gone');
+        try { if (sess.peer) sess.peer.destroy(); } catch (e) {}
+        var pc = manPc();
+        sess.peer = { destroy: function () { try { pc.close(); } catch (e) {} } };
+        manWatch(pc, sess);
+        pc.ondatachannel = function (ev) { var conn = manConn(ev.channel, pc); sess.conn = conn; vsHook(conn, sess); };
+        return pc.setRemoteDescription({ type: 'offer', sdp: sig.s }).then(function () { return pc.createAnswer(); })
+          .then(function (a) { return pc.setLocalDescription(a); }).then(function () { return manGather(pc); })
+          .then(function () { return packSig({ t: 'a', s: pc.localDescription.sdp }); });
+      }).then(function (code) { MAN.mOut.value = code; manStat('REPLY READY. COPY IT AND SEND IT BACK. THEN WAIT.'); })
+        .catch(function (e) { if (e && e.message === 'gone') return; manStat('THAT IS NOT A VALID HOST CODE', true); });
+    };
+  }
+  MAN.mHost.onclick = manHost;
+  MAN.mJoin.onclick = manJoin;
+  MAN.mCopy.onclick = manCopyOut;
+  MAN.mCancel.onclick = function () { vsOpenMenu(); };
 
   function vsOpenMenu() {
     setCodeBox(false); vsCleanup();
@@ -1860,15 +2040,16 @@ canvas:focus-visible { border-color: var(--accent); }
       'THEIR BALL GETS PAST YOU AND YOU LOSE STRAIGHT AWAY.'
     ];
     for (var i = 0; i < lines.length; i++) text(lines[i], W / 2, 92 + i * 22, 11, i === 1 ? C.fg : C.dim, 'center', 'body');
-    var ys = [290, 340, 390, 440];
-    btn('v0', 'VS COMPUTER', W / 2, ys[0], 260, 42, true, vsStartAI, C.blue);
-    btn('v1', 'CREATE ONLINE GAME', W / 2, ys[1], 260, 42, false, vsHostStart);
-    btn('v2', 'JOIN WITH CODE', W / 2, ys[2], 260, 42, false, vsOpenJoin);
-    btn('v3', 'BACK', W / 2, ys[3], 260, 42, false, toMenu);
-    if (vsMsg) text(vsMsg, W / 2, 492, 10, C.bad, 'center', 'body');
+    var ys = [276, 322, 368, 414, 460];
+    btn('v0', 'VS COMPUTER', W / 2, ys[0], 260, 38, true, vsStartAI, C.blue);
+    btn('v1', 'ONLINE: CREATE GAME', W / 2, ys[1], 260, 38, false, vsHostStart);
+    btn('v2', 'ONLINE: JOIN WITH CODE', W / 2, ys[2], 260, 38, false, vsOpenJoin);
+    btn('v3', 'DIRECT LINK (NO RELAY)', W / 2, ys[3], 260, 38, false, manOpen);
+    btn('v4', 'BACK', W / 2, ys[4], 260, 38, false, toMenu);
+    if (vsMsg) text(vsMsg, W / 2, 510, 10, C.bad, 'center', 'body');
     text('ONLINE PLAY IS EXPERIMENTAL AND MAY NOT WORK ON EVERY NETWORK', W / 2, 560, 9, C.dim, 'center', 'body');
     ctx.strokeStyle = C.fg; ctx.lineWidth = 2;
-    rr(W / 2 - 136, ys[vsSel] - 24, 272, 48, 8); ctx.stroke();
+    rr(W / 2 - 136, ys[vsSel] - 22, 272, 44, 8); ctx.stroke();
   }
 
   function drawVsLobby() {
@@ -2049,6 +2230,7 @@ canvas:focus-visible { border-color: var(--accent); }
     var down = k === 'ArrowDown' || k === 's' || k === 'S';
     var go = k === ' ' || k === 'Enter';
     var back = k === 'Escape' || k === 'm' || k === 'M';
+    if (e.target && e.target.closest && e.target.closest('#manual')) return;
     if (e.target === codeEl) {
       if (k === 'Enter') { e.preventDefault(); vsJoin(codeEl.value); }
       else if (k === 'Escape') { vsOpenMenu(); }
@@ -2067,9 +2249,9 @@ canvas:focus-visible { border-color: var(--accent); }
       return;
     }
     if (state === 'vsmenu') {
-      if (up) { vsSel = (vsSel + 3) % 4; hoverId = null; }
-      else if (down) { vsSel = (vsSel + 1) % 4; hoverId = null; }
-      else if (go && !e.repeat) { if (vsSel === 0) vsStartAI(); else if (vsSel === 1) vsHostStart(); else if (vsSel === 2) vsOpenJoin(); else toMenu(); }
+      if (up) { vsSel = (vsSel + 4) % 5; hoverId = null; }
+      else if (down) { vsSel = (vsSel + 1) % 5; hoverId = null; }
+      else if (go && !e.repeat) { if (vsSel === 0) vsStartAI(); else if (vsSel === 1) vsHostStart(); else if (vsSel === 2) vsOpenJoin(); else if (vsSel === 3) manOpen(); else toMenu(); }
       else if (back && !e.repeat) toMenu();
       return;
     }
